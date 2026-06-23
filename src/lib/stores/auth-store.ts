@@ -8,7 +8,7 @@ interface AuthState {
   error: string | null;
   lastActivity: number;
   isSetup: boolean | null;
-  
+
   setup: (password: string) => Promise<void>;
   login: (password: string) => Promise<void>;
   logout: () => void;
@@ -23,11 +23,25 @@ const ATTEMPT_DELAY = 30000;
 let failedAttempts = 0;
 let lastFailedAttempt = 0;
 
+function getStoredAuth(): { authenticated: boolean; lastActivity: number } {
+  if (typeof window === 'undefined') return { authenticated: false, lastActivity: Date.now() };
+  try {
+    const auth = sessionStorage.getItem('vf-auth');
+    if (!auth) return { authenticated: false, lastActivity: Date.now() };
+    const parsed = JSON.parse(auth);
+    return { authenticated: !!parsed.authenticated, lastActivity: parsed.lastActivity || Date.now() };
+  } catch {
+    return { authenticated: false, lastActivity: Date.now() };
+  }
+}
+
+const stored = getStoredAuth();
+
 export const useAuthStore = create<AuthState>((set, get) => ({
-  isAuthenticated: false,
+  isAuthenticated: stored.authenticated,
   isLoading: false,
   error: null,
-  lastActivity: Date.now(),
+  lastActivity: stored.lastActivity,
   isSetup: null,
 
   checkSetup: async () => {
@@ -70,11 +84,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         lastfmApiKey: '',
       });
       
+      const now = Date.now();
+      sessionStorage.setItem('vf-auth', JSON.stringify({ authenticated: true, lastActivity: now }));
       set({
         isAuthenticated: true,
         isLoading: false,
         isSetup: true,
-        lastActivity: Date.now()
+        lastActivity: now
       });
     } catch {
       set({
@@ -127,10 +143,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       
       failedAttempts = 0;
+      const now = Date.now();
+      sessionStorage.setItem('vf-auth', JSON.stringify({ authenticated: true, lastActivity: now }));
       set({
         isAuthenticated: true,
         isLoading: false,
-        lastActivity: Date.now()
+        lastActivity: now
       });
     } catch {
       set({
@@ -142,6 +160,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: () => {
     encryption.clearSession();
+    sessionStorage.removeItem('vf-auth');
     set({
       isAuthenticated: false,
       error: null
@@ -161,6 +180,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   updateActivity: () => {
-    set({ lastActivity: Date.now() });
+    const now = Date.now();
+    sessionStorage.setItem('vf-auth', JSON.stringify({ authenticated: true, lastActivity: now }));
+    set({ lastActivity: now });
   }
 }));

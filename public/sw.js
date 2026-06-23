@@ -28,12 +28,16 @@ self.addEventListener('install', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.url.startsWith('chrome-extension://')) return;
 
+  const { request } = event;
+  // POST, PUT, DELETE gibi non-GET request'leri cache'e alma
+  if (request.method !== 'GET') return;
+
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return cached || fetch(event.request).then((response) => {
+    caches.match(request).then((cached) => {
+      return cached || fetch(request).then((response) => {
         if (!response || response.status !== 200 || response.type !== 'basic') return response;
         return caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, response.clone());
+          cache.put(request, response.clone());
           return response;
         });
       });
