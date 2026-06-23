@@ -1,0 +1,61 @@
+export const STOIC_QUOTES = [
+  { text: 'Mutluluk, olan bitene değil, ona nasıl tepki verdiğine bağlıdır.', author: 'Epiktetos' },
+  { text: 'Kontrol edebileceğin şeylere odaklan, edemediklerini bırak.', author: 'Epiktetos' },
+  { text: 'Seni rahatsız eden şeyler değil, onlar hakkındaki yargılarındır.', author: 'Marcus Aurelius' },
+  { text: 'Önce kendine ne olmak istediğini söyle, sonra yapman gerekeni yap.', author: 'Epiktetos' },
+  { text: 'Şu anı yaşa. Geçmişe takılma, gelecekten korkma.', author: 'Marcus Aurelius' },
+  { text: 'Zorluklar seni daha güçlü kılmak için vardır, yok etmek için değil.', author: 'Seneca' },
+  { text: 'Kader, cesur olanlara yardım eder.', author: 'Seneca' },
+  { text: 'Aradığın huzur dışarıda değil, içinde.', author: 'Marcus Aurelius' },
+  { text: 'Bir şeyi değiştiremiyorsan, ona bakış açını değiştir.', author: 'Marcus Aurelius' },
+  { text: 'Kısa bir hayatın var, onu anlamlı yaşa.', author: 'Seneca' },
+  { text: 'Öfke geçici bir deliliktir.', author: 'Seneca' },
+  { text: 'Ne kadar uzun yaşadığın değil, nasıl yaşadığın önemlidir.', author: 'Seneca' },
+  { text: 'Kendini tanı, kendine hakim ol, kendini geliştir.', author: 'Epiktetos' },
+  { text: 'Rüzgarın yönünü değiştiremezsin ama yelkenlerini ayarlayabilirsin.', author: 'Seneca' },
+  { text: 'Her gün yeni bir başlangıçtır. Dünün hatalarını bugüne taşıma.', author: 'Marcus Aurelius' },
+  { text: 'Sessizlik ve sakinlik, en büyük güç kaynaklarıdır.', author: 'Epiktetos' },
+  { text: 'Başkalarının ne düşündüğü değil, senin ne yaptığın önemlidir.', author: 'Marcus Aurelius' },
+  { text: 'Zor zamanlar güçlü insanlar yaratır.', author: 'Seneca' },
+  { text: 'Hayat sadece şimdiki andan ibarettir; gerisi ya geçmişin anıları ya da geleceğin beklentileridir.', author: 'Marcus Aurelius' },
+  { text: 'Yapabileceğin en iyi şey, yapman gereken şeydir.', author: 'Epiktetos' },
+  { text: 'Bilgelik, ne söyleyeceğini değil, ne zaman susacağını bilmektir.', author: 'Zenon' },
+  { text: 'Kendine hakim olmak, en büyük zaferdir.', author: 'Platon' },
+  { text: 'Her sabah kendine şunu söyle: Bugün engellerle, nankörlükle, kibirle karşılaşabilirim. Ama bunların hiçbiri bana zarar veremez.', author: 'Marcus Aurelius' },
+  { text: 'Küçük şeylerden mutlu olmayı öğren. Büyük şeyler nadiren gelir.', author: 'Seneca' },
+  { text: 'İnsan, başına gelenlerden değil, onlara verdiği tepkilerden sorumludur.', author: 'Epiktetos' },
+  { text: 'Karakterin, kaderindir.', author: 'Herakleitos' },
+  { text: 'Dürüstlük pahalı bir mülktür, ucuz insanlarda bulunmaz.', author: 'Epiktetos' },
+  { text: 'Önce dinle, sonra konuş. Önce düşün, sonra hareket et.', author: 'Epiktetos' },
+  { text: 'Sabır acıdır ama meyvesi tatlıdır.', author: 'Aristoteles' },
+  { text: 'Kendine yapılmasını istemediğini başkasına yapma.', author: 'Epiktetos' },
+  { text: 'İyi bir insan olmak, kötü bir insanı affetmekle başlar.', author: 'Marcus Aurelius' },
+  { text: 'Mantıklı düşünemiyorsan, susmayı dene.', author: 'Epiktetos' },
+  { text: 'Hayatın anlamı, onu yaşarken yarattığın anlamdır.', author: 'Seneca' },
+  { text: 'En güçlü insan, en çok seven değil, en çok dayanabilendir.', author: 'Marcus Aurelius' },
+  { text: 'Bazı kapılar kapanır, bazıları açılır. Önemli olan hangisine bakacağını bilmektir.', author: 'Seneca' },
+  { text: 'Korkularını yenmek, cesaretin ta kendisidir.', author: 'Epiktetos' },
+  { text: 'Zaman en değerli hazinedir, onu boşa harcama.', author: 'Seneca' },
+  { text: 'Başarı, düştüğünde tekrar ayağa kalkabilmektir.', author: 'Epiktetos' },
+  { text: 'Değiştiremeyeceğin şeyler için endişelenme, değiştirebileceklerin için harekete geç.', author: 'Marcus Aurelius' },
+  { text: 'Her an, bir kez yaşanır. Onu değerli kılmak senin elinde.', author: 'Marcus Aurelius' },
+  { text: 'Sahip olduklarına şükret, olmayanlar için üzülme.', author: 'Seneca' },
+  { text: 'İnsanları oldukları gibi kabul et, kendini olman gerektiği gibi.', author: 'Epiktetos' },
+  { text: 'Zorluklar karşısında yılmamak, gerçek gücün göstergesidir.', author: 'Marcus Aurelius' },
+  { text: 'En büyük zafer, kişinin kendi kendini yenmesidir.', author: 'Platon' },
+  { text: 'Hayatta en önemli şey, başkalarına nasıl yardım edebileceğindir.', author: 'Seneca' },
+  { text: 'Geçmişi değiştiremezsin ama geleceği şekillendirebilirsin.', author: 'Epiktetos' },
+  { text: 'Bilgelik, deneyimlerin çocuğudur.', author: 'Seneca' },
+  { text: 'Sakin bir zihin, en büyük güçtür.', author: 'Marcus Aurelius' },
+  { text: 'Doğa sana bir yol gösterir, takip etmek sana kalmış.', author: 'Zenon' },
+  { text: 'Bir insanın değeri, sahip olduklarıyla değil, olduğu kişiyle ölçülür.', author: 'Epiktetos' },
+];
+
+export function getDailyQuote(): (typeof STOIC_QUOTES)[number] {
+  const today = new Date().toISOString().split('T')[0];
+  const dayOfYear = Math.floor(
+    (Date.parse(today) - Date.parse(new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]))
+    / 86400000
+  );
+  return STOIC_QUOTES[dayOfYear % STOIC_QUOTES.length];
+}

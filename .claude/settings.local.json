@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx next:*)",
+      "Bash(curl:*)",
+      "WebSearch",
+      "Bash(cp /c/Users/Veli/Desktop/\"Tüm Masaüstüm\"/kisisel-takip/PRD.md /c/Users/Veli/Desktop/\"Tüm Masaüstüm\"/kisisel-takip/vitaforge/)",
+      "Bash(cp /c/Users/Veli/Desktop/\"Tüm Masaüstüm\"/kisisel-takip/MVP_PLAN.md /c/Users/Veli/Desktop/\"Tüm Masaüstüm\"/kisisel-takip/vitaforge/)",
+      "Bash(cp /c/Users/Veli/Desktop/\"Tüm Masaüstüm\"/kisisel-takip/TECHNICAL_DECISIONS.md /c/Users/Veli/Desktop/\"Tüm Masaüstüm\"/kisisel-takip/vitaforge/)"
+    ]
+  }
+}
