@@ -1,50 +1,59 @@
-const CACHE_NAME = 'vitaforge-v2';
-const STATIC_ASSETS = [
-  '/',
-  '/dashboard',
-  '/login',
-  '/setup',
-  '/tasks',
-  '/projects',
-  '/habits',
-  '/notes',
-  '/journal',
-  '/gratitude',
-  '/reading',
-  '/sleep',
-  '/goals',
-  '/analytics',
-  '/settings',
-];
+const CACHE_NAME = 'vitaforge-v3';
 
+// Cache-first statik assetler (font, image, css, js)
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
-    })
-  );
+  self.skipWaiting();
 });
 
+// Fetch: network-first sayfa istekleri, cache-first statik assetler
 self.addEventListener('fetch', (event) => {
-  if (event.request.url.startsWith('chrome-extension://')) return;
-
   const { request } = event;
-  // POST, PUT, DELETE gibi non-GET request'leri cache'e alma
+  const url = new URL(request.url);
+
+  // Chrome extension'leri atla
+  if (url.protocol === 'chrome-extension:') return;
+
+  // POST/PUT/DELETE isteklerini cache'e alma
   if (request.method !== 'GET') return;
 
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      return cached || fetch(request).then((response) => {
-        if (!response || response.status !== 200 || response.type !== 'basic') return response;
-        return caches.open(CACHE_NAME).then((cache) => {
-          cache.put(request, response.clone());
+  // API isteklerini cache'e alma
+  if (url.pathname.startsWith('/api/')) return;
+
+  // Sayfa navigasyonları: network-first (her zaman güncel versiyon)
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // Statik assetler: cache-first, network fallback
+  if (
+    url.pathname.match(/\.(js|css|png|jpg|jpeg|svg|ico|woff2?|ttf)$/)
+  ) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) return cached;
+        return fetch(request).then((response) => {
+          if (response && response.status === 200 && response.type === 'basic') {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
           return response;
         });
-      });
-    })
-  );
+      })
+    );
+    return;
+  }
 });
 
+// Eski cache'leri temizle
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -55,4 +64,5 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
+  self.clients.claim();
 });
