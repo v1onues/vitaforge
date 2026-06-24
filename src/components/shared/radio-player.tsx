@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Play, Pause, Volume2, VolumeX, Radio, Loader2 } from 'lucide-react';
@@ -20,6 +20,7 @@ export function RadioPlayer({ station }: RadioPlayerProps) {
   const [error, setError] = useState<string | null>(null);
   const [currentSrc, setCurrentSrc] = useState<string | null>(null);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const barHeights = useMemo(() => [8 + Math.random() * 12, 8 + Math.random() * 12, 8 + Math.random() * 12], []);
 
   const destroyHls = useCallback(() => {
     if (hlsRef.current) {
@@ -186,7 +187,7 @@ export function RadioPlayer({ station }: RadioPlayerProps) {
           {playing && (
             <div className="flex items-center gap-0.5 shrink-0">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="w-1 bg-primary rounded-full animate-pulse" style={{ height: `${8 + Math.random() * 12}px`, animationDelay: `${i * 0.15}s` }} />
+                <div key={i} className="w-1 bg-primary rounded-full animate-pulse" style={{ height: `${barHeights[i]}px`, animationDelay: `${i * 0.15}s` }} />
               ))}
             </div>
           )}
