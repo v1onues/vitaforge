@@ -417,9 +417,10 @@ export class VitaForgeDB extends Dexie {
           { id: crypto.randomUUID(), name: 'Radyo Eksen', url: 'https://broadcast.powerapp.com.tr/eksenfm/mpeg/icecast.audio', category: 'turkish', genre: 'Rock', country: 'TR', faviconUrl: null, order: 2, isDefault: true, createdAt: now, updatedAt: now },
           { id: crypto.randomUUID(), name: 'Super FM', url: 'https://broadcast.powerapp.com.tr/superfm/mpeg/icecast.audio', category: 'turkish', genre: 'Pop', country: 'TR', faviconUrl: null, order: 3, isDefault: true, createdAt: now, updatedAt: now },
           { id: crypto.randomUUID(), name: 'TRT FM', url: 'https://radio-trtfm.live.trt.com.tr/master.m3u8', category: 'turkish', genre: 'Pop', country: 'TR', faviconUrl: null, order: 4, isDefault: true, createdAt: now, updatedAt: now },
-          { id: crypto.randomUUID(), name: 'BBC Radio 1', url: 'https://stream.live.vc.bbcmedia.co.uk/bbc_radio_one', category: 'international', genre: 'Pop', country: 'UK', faviconUrl: null, order: 5, isDefault: true, createdAt: now, updatedAt: now },
-          { id: crypto.randomUUID(), name: 'Jazz FM', url: 'https://jazz-wr01.ice.infomaniak.ch/jazz-wr01-128.mp3', category: 'international', genre: 'Jazz', country: 'CH', faviconUrl: null, order: 6, isDefault: true, createdAt: now, updatedAt: now },
-          { id: crypto.randomUUID(), name: 'Classic FM', url: 'https://media-ice.musicradio.com/ClassicFMMP3', category: 'international', genre: 'Classical', country: 'UK', faviconUrl: null, order: 7, isDefault: true, createdAt: now, updatedAt: now },
+          { id: crypto.randomUUID(), name: 'NTV Radyo', url: 'https://broadcast.powerapp.com.tr/ntvradyo/mpeg/icecast.audio', category: 'turkish', genre: 'Haber', country: 'TR', faviconUrl: null, order: 5, isDefault: true, createdAt: now, updatedAt: now },
+          { id: crypto.randomUUID(), name: 'BBC Radio 1', url: 'https://stream.live.vc.bbcmedia.co.uk/bbc_radio_one', category: 'international', genre: 'Pop', country: 'UK', faviconUrl: null, order: 6, isDefault: true, createdAt: now, updatedAt: now },
+          { id: crypto.randomUUID(), name: 'Jazz FM', url: 'https://jazz-wr01.ice.infomaniak.ch/jazz-wr01-128.mp3', category: 'international', genre: 'Jazz', country: 'CH', faviconUrl: null, order: 7, isDefault: true, createdAt: now, updatedAt: now },
+          { id: crypto.randomUUID(), name: 'Classic FM', url: 'https://media-ice.musicradio.com/ClassicFMMP3', category: 'international', genre: 'Classical', country: 'UK', faviconUrl: null, order: 8, isDefault: true, createdAt: now, updatedAt: now },
         ]);
       }
     });

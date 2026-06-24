@@ -12,24 +12,36 @@ interface RadioPlayerProps {
 
 export function RadioPlayer({ station }: RadioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const hlsRef = useRef<unknown>(null);
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [volume, setVolume] = useState(0.7);
   const [muted, setMuted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentSrc, setCurrentSrc] = useState<string | null>(null);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const destroyHls = useCallback(() => {
+    if (hlsRef.current) {
+      try {
+        (hlsRef.current as { destroy: () => void }).destroy();
+      } catch {}
+      hlsRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio();
     }
     return () => {
+      destroyHls();
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = '';
       }
     };
-  }, []);
+  }, [destroyHls]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -43,7 +55,7 @@ export function RadioPlayer({ station }: RadioPlayerProps) {
 
     const onPlaying = () => { setLoading(false); setPlaying(true); setError(null); };
     const onWaiting = () => { setLoading(true); };
-    const onError = () => { setLoading(false); setPlaying(false); setError('Yayın bağlantı hatası'); };
+    const onError = () => { setLoading(false); setPlaying(false); setError('Yayın bağlantı hatası — tekrar deneyin'); };
 
     audio.addEventListener('playing', onPlaying);
     audio.addEventListener('waiting', onWaiting);
@@ -56,6 +68,54 @@ export function RadioPlayer({ station }: RadioPlayerProps) {
     };
   }, []);
 
+  const loadStream = useCallback((url: string) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    destroyHls();
+    setError(null);
+
+    if (url.endsWith('.m3u8') || url.includes('m3u8')) {
+      // HLS stream
+      import('hls.js').then((HlsModule) => {
+        const Hls = HlsModule.default;
+        if (Hls.isSupported()) {
+          const hls = new Hls({ enableWorker: true });
+          hls.loadSource(url);
+          hls.attachMedia(audio);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            audio.play().catch(() => {});
+          });
+          hls.on(Hls.Events.ERROR, (_event: unknown, data: { fatal: boolean }) => {
+            if (data.fatal) {
+              setError('Yayın bağlantı hatası — tekrar deneyin');
+              setPlaying(false);
+              setLoading(false);
+            }
+          });
+          hlsRef.current = hls;
+        } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
+          // Safari native HLS
+          audio.src = url;
+          audio.play().catch(() => {});
+        } else {
+          setError('Bu yayın tarayıcınızda desteklenmiyor');
+          setLoading(false);
+        }
+      }).catch(() => {
+        setError('HLS kütüphanesi yüklenemedi');
+        setLoading(false);
+      });
+    } else {
+      // Regular audio stream
+      audio.src = url;
+      audio.play().catch(() => {
+        setError('Yayın başlatılamadı — tekrar deneyin');
+        setLoading(false);
+      });
+    }
+  }, [destroyHls]);
+
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
     if (!audio || !station) return;
@@ -65,20 +125,23 @@ export function RadioPlayer({ station }: RadioPlayerProps) {
       setPlaying(false);
     } else {
       if (currentSrc !== station.url) {
-        audio.src = station.url;
         setCurrentSrc(station.url);
+        setLoading(true);
+        loadStream(station.url);
+      } else {
+        setLoading(true);
+        setError(null);
+        audio.play().catch(() => {
+          // Retry with fresh connection
+          loadStream(station.url);
+        });
       }
-      setLoading(true);
-      setError(null);
-      audio.play().catch(() => {
-        setLoading(false);
-        setError('Yayın başlatılamadı');
-      });
     }
-  }, [playing, station, currentSrc]);
+  }, [playing, station, currentSrc, loadStream]);
 
   useEffect(() => {
     if (!station && audioRef.current) {
+      destroyHls();
       audioRef.current.pause();
       audioRef.current.src = '';
       setCurrentSrc(null);
@@ -86,16 +149,17 @@ export function RadioPlayer({ station }: RadioPlayerProps) {
       setLoading(false);
       setError(null);
     }
-  }, [station]);
+  }, [station, destroyHls]);
 
+  // Auto-play when station changes
   useEffect(() => {
-    if (station && currentSrc && currentSrc !== station.url && audioRef.current) {
-      audioRef.current.pause();
-      setPlaying(false);
-      setLoading(false);
-      setError(null);
+    if (station && station.url && currentSrc !== station.url) {
+      setCurrentSrc(station.url);
+      setLoading(true);
+      loadStream(station.url);
     }
-  }, [station, currentSrc]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [station?.url]);
 
   if (!station) {
     return (
