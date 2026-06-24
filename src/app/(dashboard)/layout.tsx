@@ -7,6 +7,7 @@ import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { CommandPalette } from '@/components/shared/command-palette';
+import { MiniRadio } from '@/components/shared/mini-radio';
 import { QuickAdd } from '@/components/shared/quick-add';
 import { GlobalSearch } from '@/components/shared/global-search';
 import { AiAgent } from '@/components/shared/ai-agent';
@@ -76,11 +77,12 @@ export default function DashboardLayout({
         }`}
       >
         <Header />
-        <div className="flex-1 p-6">
+        <div className="flex-1 p-6 pb-20">
           {children}
         </div>
       </main>
       <CommandPalette />
+      <MiniRadio />
       <QuickAdd />
       <GlobalSearch />
       <AiAgent />

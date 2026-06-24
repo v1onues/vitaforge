@@ -639,7 +639,7 @@ export function AiAgent() {
     <>
       {/* FAB Button */}
       <Button
-        className="fixed bottom-6 right-6 z-50 rounded-full w-14 h-14 shadow-lg"
+        className="fixed bottom-20 right-6 z-50 rounded-full w-14 h-14 shadow-lg"
         onClick={() => setOpen(true)}
       >
         <Bot className="w-6 h-6" />
@@ -647,7 +647,7 @@ export function AiAgent() {
 
       {/* Chat Panel */}
       {open && (
-        <div className="fixed bottom-24 right-6 z-50 w-96 h-[600px] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed bottom-36 right-6 z-50 w-96 h-[600px] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border bg-primary/5">
             <div className="flex items-center gap-2">
