@@ -82,6 +82,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         rawgApiKey: '',
         googleBooksApiKey: '',
         lastfmApiKey: '',
+        syncEnabled: false,
+        syncId: '',
+        supabaseUrl: '',
+        supabaseAnonKey: '',
+        lastSyncAt: null,
+        autoSync: true,
       });
       
       const now = Date.now();

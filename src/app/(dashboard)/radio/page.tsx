@@ -19,17 +19,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { RadioPlayer } from '@/components/shared/radio-player';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useRadio } from '@/lib/hooks/use-radio';
+import { useRadioStore } from '@/lib/stores/radio-store';
 import type { RadioStation } from '@/lib/db/schema';
 import {
   Radio,
   Plus,
   Search,
   Globe,
-  Trash2,
   Music,
+  MoreHorizontal,
+  Trash2,
+  Edit,
+  Volume2,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const CATEGORY_LABELS: Record<string, string> = {
   turkish: 'Türkçe',
@@ -37,24 +47,20 @@ const CATEGORY_LABELS: Record<string, string> = {
   custom: 'Özel',
 };
 
-const CATEGORY_ICONS: Record<string, typeof Radio> = {
-  turkish: Globe,
-  international: Music,
-  custom: Radio,
-};
-
 function StationForm({
   onDone,
   onSave,
+  initialData,
 }: {
   onDone: () => void;
   onSave: (data: Omit<RadioStation, 'id' | 'createdAt' | 'updatedAt' | 'isDefault' | 'order'>) => Promise<void>;
+  initialData?: RadioStation | null;
 }) {
-  const [name, setName] = useState('');
-  const [url, setUrl] = useState('');
-  const [category, setCategory] = useState<RadioStation['category']>('custom');
-  const [genre, setGenre] = useState('');
-  const [country, setCountry] = useState('');
+  const [name, setName] = useState(initialData?.name ?? '');
+  const [url, setUrl] = useState(initialData?.url ?? '');
+  const [category, setCategory] = useState<RadioStation['category']>(initialData?.category ?? 'custom');
+  const [genre, setGenre] = useState(initialData?.genre ?? '');
+  const [country, setCountry] = useState(initialData?.country ?? '');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -65,14 +71,7 @@ function StationForm({
     }
     setSaving(true);
     try {
-      await onSave({
-        name,
-        url: finalUrl,
-        category,
-        genre: genre || 'Diğer',
-        country: country || null,
-        faviconUrl: null,
-      });
+      await onSave({ name, url: finalUrl, category, genre: genre || 'Diğer', country: country || null, faviconUrl: null });
       onDone();
     } finally {
       setSaving(false);
@@ -83,13 +82,21 @@ function StationForm({
     <Dialog open onOpenChange={() => onDone()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Yeni İstasyon</DialogTitle>
+          <DialogTitle>{initialData ? 'İstasyonu Düzenle' : 'Yeni İstasyon'}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">İsim</label>
-            <Input placeholder="Radyo ismi" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-          </div>
+          {!initialData && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">İsim</label>
+              <Input placeholder="Radyo ismi" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+            </div>
+          )}
+          {initialData && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">İsim</label>
+              <Input placeholder="Radyo ismi" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+            </div>
+          )}
           <div className="space-y-2">
             <label className="text-sm font-medium">Yayın URL</label>
             <Input placeholder="https://stream.ornek.com/radio.mp3" value={url} onChange={(e) => setUrl(e.target.value)} />
@@ -119,7 +126,7 @@ function StationForm({
         <DialogFooter>
           <Button variant="outline" onClick={() => onDone()}>İptal</Button>
           <Button disabled={saving || !name || !url} onClick={handleSave}>
-            {saving ? 'Kaydediliyor...' : 'Ekle'}
+            {saving ? 'Kaydediliyor...' : initialData ? 'Kaydet' : 'Ekle'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -128,10 +135,11 @@ function StationForm({
 }
 
 export default function RadioPage() {
-  const { stations, addStation, deleteStation } = useRadio();
-  const [activeStation, setActiveStation] = useState<RadioStation | null>(null);
+  const { stations, addStation, updateStation, deleteStation } = useRadio();
+  const { activeStation, setActiveStation } = useRadioStore();
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [editStation, setEditStation] = useState<RadioStation | null>(null);
 
   const enabledStations = stations.filter((s) => s.order >= 0);
   const filtered = search
@@ -161,14 +169,25 @@ export default function RadioPage() {
           </h1>
           <p className="text-muted-foreground">{enabledStations.length} istasyon</p>
         </div>
-        <Button onClick={() => setShowForm(true)}>
+        <Button onClick={() => { setEditStation(null); setShowForm(true); }}>
           <Plus className="w-4 h-4 mr-2" />
           İstasyon Ekle
         </Button>
       </div>
 
-      {/* Player */}
-      <RadioPlayer station={activeStation} />
+      {/* Now playing indicator */}
+      {activeStation && (
+        <Card className="border-0 bg-primary/5 dark:bg-primary/10">
+          <CardContent className="py-3 flex items-center gap-3">
+            <Volume2 className="w-5 h-5 text-pink-500 animate-pulse" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">{activeStation.name}</p>
+              <p className="text-xs text-muted-foreground">{activeStation.genre}{activeStation.country ? ` · ${activeStation.country}` : ''}</p>
+            </div>
+            <Badge className="bg-pink-500 text-white text-xs">DİNLENİYOR</Badge>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Search */}
       <div className="relative max-w-md">
@@ -176,7 +195,7 @@ export default function RadioPage() {
         <Input placeholder="İstasyon ara..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
       </div>
 
-      {/* Station List by Category */}
+      {/* Station List */}
       {grouped.length === 0 ? (
         <Card className="border-0 bg-black/[0.02] dark:bg-white/[0.02]">
           <CardContent className="py-12 text-center text-muted-foreground">
@@ -197,38 +216,43 @@ export default function RadioPage() {
                   <Card
                     key={station.id}
                     onClick={() => setActiveStation(station)}
-                    className={`border-0 transition-colors cursor-pointer ${
+                    className={cn(
+                      'border-0 transition-colors cursor-pointer',
                       isActive
                         ? 'bg-primary/10 dark:bg-primary/20'
                         : 'bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.05] dark:hover:bg-white/[0.05]'
-                    }`}
+                    )}
                   >
                     <CardContent className="py-3">
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-                          isActive ? 'bg-primary text-primary-foreground' : 'bg-muted/50'
-                        }`}>
+                        <div className={cn(
+                          'w-10 h-10 rounded-lg flex items-center justify-center shrink-0',
+                          isActive ? 'bg-pink-500 text-white' : 'bg-muted/50'
+                        )}>
                           <Radio className="w-4 h-4" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="text-sm font-medium truncate">{station.name}</p>
-                            {isActive && <Badge className="text-[10px] h-4 bg-primary">DINLENIYOR</Badge>}
+                            {isActive && <Badge className="text-[10px] h-4 bg-pink-500 text-white">DİNLENİYOR</Badge>}
                           </div>
                           <p className="text-xs text-muted-foreground">
                             {station.genre}{station.country ? ` · ${station.country}` : ''}
                           </p>
                         </div>
-                        {!station.isDefault && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 shrink-0 text-destructive opacity-0 group-hover:opacity-100"
-                            onClick={(e) => { e.stopPropagation(); deleteStation(station.id); }}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={(e) => e.stopPropagation()} />}>
+                            <MoreHorizontal className="w-4 h-4" />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditStation(station); setShowForm(true); }}>
+                              <Edit className="w-4 h-4 mr-2" />Düzenle
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); deleteStation(station.id); }}>
+                              <Trash2 className="w-4 h-4 mr-2" />Sil
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </CardContent>
                   </Card>
@@ -241,8 +265,13 @@ export default function RadioPage() {
 
       {showForm && (
         <StationForm
-          onDone={() => setShowForm(false)}
-          onSave={addStation}
+          key={editStation?.id ?? 'new'}
+          onDone={() => { setShowForm(false); setEditStation(null); }}
+          onSave={editStation
+            ? (data) => updateStation(editStation.id, data)
+            : addStation
+          }
+          initialData={editStation}
         />
       )}
     </div>

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Play, Pause, Volume2, VolumeX, Radio, Loader2, X, ChevronUp } from 'lucide-react';
 import { db } from '@/lib/db/schema';
+import { useRadioStore } from '@/lib/stores/radio-store';
 import type { RadioStation } from '@/lib/db/schema';
 import { cn } from '@/lib/utils';
 
@@ -16,12 +17,15 @@ export function MiniRadio() {
   const [volume, setVolume] = useState(0.7);
   const [error, setError] = useState<string | null>(null);
   const [currentSrc, setCurrentSrc] = useState<string | null>(null);
-  const [activeStation, setActiveStation] = useState<RadioStation | null>(null);
+  const [localStation, setLocalStation] = useState<RadioStation | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [stations, setStations] = useState<RadioStation[]>([]);
   const [showList, setShowList] = useState(false);
+  const { activeStation: storeStation, setActiveStation: setStoreStation } = useRadioStore();
 
   const barHeights = useMemo(() => [8 + Math.random() * 12, 8 + Math.random() * 12, 8 + Math.random() * 12], []);
+
+  const activeStation = localStation;
 
   const destroyHls = useCallback(() => {
     if (hlsRef.current) {
@@ -58,7 +62,6 @@ export function MiniRadio() {
     };
   }, []);
 
-  // Load stations on mount
   useEffect(() => {
     const loadStations = async () => {
       const s = await db.radioStations.orderBy('order').toArray();
@@ -67,13 +70,21 @@ export function MiniRadio() {
     loadStations();
   }, []);
 
+  // React to external station changes (from radio page)
+  useEffect(() => {
+    if (storeStation && (!activeStation || activeStation.id !== storeStation.id)) {
+      setLocalStation(storeStation);
+      setStoreStation(null);
+    }
+  }, [storeStation?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const loadStream = useCallback((url: string) => {
     const audio = audioRef.current;
     if (!audio) return;
     destroyHls();
     setError(null);
 
-    if (url.endsWith('.m3u8') || url.includes('m3u8')) {
+    if (/\.m3u8(\?.*)?$/.test(url)) {
       import('hls.js').then((HlsModule) => {
         const Hls = HlsModule.default;
         if (Hls.isSupported()) {
@@ -81,14 +92,30 @@ export function MiniRadio() {
           hls.loadSource(url);
           hls.attachMedia(audio);
           hls.on(Hls.Events.MANIFEST_PARSED, () => { audio.play().catch(() => {}); });
-          hls.on(Hls.Events.ERROR, (_e: unknown, data: { fatal: boolean }) => {
-            if (data.fatal) { setError('Bağlantı hatası'); setPlaying(false); setLoading(false); }
+          hls.on(Hls.Events.ERROR, (_e: unknown, data: { fatal: boolean; type: string }) => {
+            if (data.fatal) {
+              if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                hls.startLoad();
+              } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                hls.recoverMediaError();
+              } else {
+                setError('Bağlantı hatası');
+                setPlaying(false);
+                setLoading(false);
+              }
+            }
           });
           hlsRef.current = hls;
         } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
           audio.src = url;
           audio.play().catch(() => {});
+        } else {
+          setError('Bu yayın tarayıcınızda desteklenmiyor');
+          setLoading(false);
         }
+      }).catch(() => {
+        setError('HLS kütüphanesi yüklenemedi');
+        setLoading(false);
       });
     } else {
       audio.src = url;
@@ -100,13 +127,14 @@ export function MiniRadio() {
   }, [destroyHls]);
 
   const playStation = useCallback((station: RadioStation) => {
-    setActiveStation(station);
+    setLocalStation(station);
+    setStoreStation(station);
     setCurrentSrc(station.url);
     setLoading(true);
     setExpanded(true);
     setShowList(false);
     loadStream(station.url);
-  }, [loadStream]);
+  }, [loadStream, setStoreStation]);
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
@@ -127,12 +155,11 @@ export function MiniRadio() {
     setPlaying(false);
     setLoading(false);
     setError(null);
-    setActiveStation(null);
+    setLocalStation(null);
     setCurrentSrc(null);
     setExpanded(false);
   }, [destroyHls]);
 
-  // Station change auto-play
   useEffect(() => {
     if (activeStation && activeStation.url && currentSrc !== activeStation.url) {
       setCurrentSrc(activeStation.url);
@@ -150,7 +177,6 @@ export function MiniRadio() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40">
-      {/* Station list dropdown */}
       {showList && (
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-80 max-h-64 overflow-y-auto bg-card border border-border rounded-xl shadow-2xl">
           <div className="p-2">
@@ -177,16 +203,11 @@ export function MiniRadio() {
         </div>
       )}
 
-      {/* Main bar */}
-      <div className={cn(
-        'mx-auto transition-all duration-300',
-        expanded ? 'max-w-2xl p-2 pb-2' : 'max-w-sm p-2 pb-2'
-      )}>
+      <div className={cn('mx-auto transition-all duration-300', expanded ? 'max-w-2xl p-2 pb-2' : 'max-w-sm p-2 pb-2')}>
         <div className={cn(
           'bg-card border border-border rounded-xl shadow-lg flex items-center transition-all duration-300',
           expanded ? 'gap-3 px-3 py-2.5' : 'gap-2 px-3 py-2'
         )}>
-          {/* Station selector / info */}
           <button
             onClick={() => setShowList(!showList)}
             className="flex items-center gap-2 min-w-0 shrink-0 hover:bg-muted/50 rounded-lg px-1.5 py-1 transition-colors"
@@ -204,18 +225,12 @@ export function MiniRadio() {
             )}
           </button>
 
-          {/* Controls */}
           <div className="flex items-center gap-1.5 ml-auto shrink-0">
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setMuted(!muted)}>
               {muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
             </Button>
             {activeStation ? (
-              <Button
-                size="icon"
-                className="h-7 w-7 rounded-full"
-                onClick={togglePlay}
-                disabled={loading}
-              >
+              <Button size="icon" className="h-7 w-7 rounded-full" onClick={togglePlay} disabled={loading}>
                 {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> :
                   playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
               </Button>
@@ -226,12 +241,9 @@ export function MiniRadio() {
             )}
             {expanded && (
               <div className="flex items-center gap-1.5 ml-1">
-                <input
-                  type="range" min="0" max="1" step="0.01"
-                  value={volume}
+                <input type="range" min="0" max="1" step="0.01" value={volume}
                   onChange={(e) => setVolume(Number(e.target.value))}
-                  className="w-16 h-1 accent-primary cursor-pointer"
-                />
+                  className="w-16 h-1 accent-primary cursor-pointer" />
               </div>
             )}
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setExpanded(!expanded)}>
@@ -245,10 +257,7 @@ export function MiniRadio() {
           </div>
         </div>
 
-        {/* Error */}
-        {error && (
-          <p className="text-xs text-destructive text-center mt-1">{error}</p>
-        )}
+        {error && <p className="text-xs text-destructive text-center mt-1">{error}</p>}
       </div>
     </div>
   );

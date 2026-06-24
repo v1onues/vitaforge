@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { db } from '@/lib/db/schema';
+import { cn } from '@/lib/utils';
 import {
   Palette,
   Shield,
@@ -21,6 +22,8 @@ import {
   AlertTriangle,
   Bot,
   Film,
+  Cloud,
+  UploadCloud,
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -315,6 +318,63 @@ export default function SettingsPage() {
     }
   };
 
+  const [syncEnabled, setSyncEnabled] = useState(false);
+  const [syncId, setSyncId] = useState('');
+  const [supabaseUrl, setSupabaseUrl] = useState('');
+  const [supabaseAnonKey, setSupabaseAnonKey] = useState('');
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
+  const [autoSync, setAutoSync] = useState(false);
+  const [syncSaving, setSyncSaving] = useState(false);
+  const [pushing, setPushing] = useState(false);
+  const [pulling, setPulling] = useState(false);
+  const [syncMsg, setSyncMsg] = useState('');
+
+  useEffect(() => {
+    db.settings.get('main').then((s) => {
+      if (s) {
+        setSyncEnabled(s.syncEnabled ?? false);
+        setSyncId(s.syncId ?? '');
+        setSupabaseUrl(s.supabaseUrl ?? '');
+        setSupabaseAnonKey(s.supabaseAnonKey ?? '');
+        setLastSyncAt(s.lastSyncAt ?? null);
+        setAutoSync(s.autoSync ?? false);
+      }
+    });
+  }, []);
+
+  const handleSaveSync = async () => {
+    setSyncSaving(true);
+    try {
+      await db.settings.update('main', { syncEnabled, syncId, supabaseUrl, supabaseAnonKey, autoSync });
+      setSyncMsg('Kaydedildi');
+    } finally { setSyncSaving(false); }
+  };
+
+  const handlePush = async () => {
+    setSyncMsg('');
+    setPushing(true);
+    try {
+      const { pushSync } = await import('@/lib/sync/sync-client');
+      const r = await pushSync();
+      setSyncMsg(r.success ? 'Başarıyla buluta yüklendi!' : r.error ?? 'Hata');
+      if (r.success) setLastSyncAt(r.timestamp ?? null);
+    } finally { setPushing(false); }
+  };
+
+  const handlePull = async () => {
+    setSyncMsg('');
+    setPulling(true);
+    try {
+      const { pullSync } = await import('@/lib/sync/sync-client');
+      const r = await pullSync();
+      setSyncMsg(r.success ? 'Başarıyla buluttan indirildi! Sayfa yenilenecek.' : r.error ?? 'Hata');
+      if (r.success) {
+        setLastSyncAt(r.timestamp ?? null);
+        setTimeout(() => window.location.reload(), 1500);
+      }
+    } finally { setPulling(false); }
+  };
+
   const handleDeleteAll = async () => {
     if (!confirm('TÜM VERİLER SİLİNECEK! Bu işlem geri alınamaz. Emin misin?')) return;
     if (!confirm('Son uyarı! Tüm veriler kalıcı olarak silinecek. Devam et?')) return;
@@ -374,6 +434,10 @@ export default function SettingsPage() {
           <TabsTrigger value="media">
             <Film className="w-4 h-4 mr-2" />
             Medya
+          </TabsTrigger>
+          <TabsTrigger value="sync">
+            <Cloud className="w-4 h-4 mr-2" />
+            Senkronizasyon
           </TabsTrigger>
         </TabsList>
 
@@ -736,6 +800,99 @@ export default function SettingsPage() {
                   {aiSaved ? 'Kaydedildi!' : savingAi ? 'Kaydediliyor...' : 'Kaydet'}
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="sync" className="mt-6 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Bulut Senkronizasyonu</CardTitle>
+              <CardDescription>
+                Verilerini şifrelenmiş olarak cihazlar arasında senkronize et
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Senkronizasyon</p>
+                  <p className="text-xs text-muted-foreground">Veriler AES-256 ile şifrelenir</p>
+                </div>
+                <Button variant={syncEnabled ? 'default' : 'outline'} onClick={() => setSyncEnabled(!syncEnabled)}>
+                  {syncEnabled ? 'Aktif' : 'Pasif'}
+                </Button>
+              </div>
+
+              {syncEnabled && (
+                <>
+                  <div className="space-y-2 pt-2 border-t">
+                    <label className="text-sm font-medium">Supabase URL</label>
+                    <Input placeholder="https://xxxxx.supabase.co" value={supabaseUrl} onChange={(e) => setSupabaseUrl(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Supabase Anon Key</label>
+                    <Input type="password" placeholder="eyJ..." value={supabaseAnonKey} onChange={(e) => setSupabaseAnonKey(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Senkronizasyon ID</label>
+                    <div className="flex gap-2">
+                      <Input placeholder="Aynı ID tüm cihazlarda" value={syncId} onChange={(e) => setSyncId(e.target.value)} />
+                      <Button variant="outline" onClick={() => setSyncId(crypto.randomUUID())}>Oluştur</Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Tüm cihazlarda aynı ID'yi gir</p>
+                  </div>
+                  <Button onClick={handleSaveSync} disabled={syncSaving}>
+                    {syncSaving ? 'Kaydediliyor...' : 'Kaydet'}
+                  </Button>
+
+                  {(supabaseUrl && supabaseAnonKey && syncId) && (
+                    <div className="space-y-3 pt-4 border-t">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Otomatik Senkronizasyon</p>
+                          <p className="text-xs text-muted-foreground">Veri değişikliğinde otomatik yükle</p>
+                        </div>
+                        <Button variant={autoSync ? 'default' : 'outline'} size="sm" onClick={() => { setAutoSync(!autoSync); }}>
+                          {autoSync ? 'Aktif' : 'Pasif'}
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <Button variant="outline" className="w-full justify-start" disabled={pushing} onClick={handlePush}>
+                          <UploadCloud className="w-4 h-4 mr-2" />{pushing ? 'Yükleniyor...' : 'Buluta Yükle'}
+                        </Button>
+                        <Button variant="outline" className="w-full justify-start" disabled={pulling} onClick={handlePull}>
+                          <Cloud className="w-4 h-4 mr-2" />{pulling ? 'İndiriliyor...' : 'Buluttan İndir'}
+                        </Button>
+                      </div>
+                      {lastSyncAt && (
+                        <p className="text-xs text-muted-foreground text-center">
+                          Son sync: {new Date(lastSyncAt).toLocaleString('tr-TR')}
+                        </p>
+                      )}
+                      {syncMsg && (
+                        <p className={cn('text-xs text-center', syncMsg.includes('Hata') ? 'text-destructive' : 'text-green-500')}>{syncMsg}</p>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Kurulum Rehberi</CardTitle></CardHeader>
+            <CardContent className="text-sm text-muted-foreground space-y-2">
+              <p>1. supabase.com&apos;da ücretsiz proje oluştur</p>
+              <p>2. SQL Editor&apos;de şu tabloyu oluştur:</p>
+              <pre className="bg-muted p-3 rounded-lg text-xs mt-2 overflow-x-auto">
+{`CREATE TABLE sync_data (
+  id TEXT PRIMARY KEY,
+  encrypted_data TEXT NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now()
+);`}
+              </pre>
+              <p className="mt-2">3. Project Settings &rarr; API &rarr; URL ve anon key&apos;i al</p>
+              <p>4. Yukarıdaki alanlara yapıştır, aynı Sync ID&apos;yi tüm cihazlarda kullan</p>
             </CardContent>
           </Card>
         </TabsContent>

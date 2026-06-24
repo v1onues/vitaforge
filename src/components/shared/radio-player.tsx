@@ -87,11 +87,17 @@ export function RadioPlayer({ station }: RadioPlayerProps) {
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
             audio.play().catch(() => {});
           });
-          hls.on(Hls.Events.ERROR, (_event: unknown, data: { fatal: boolean }) => {
+          hls.on(Hls.Events.ERROR, (_event: unknown, data: { fatal: boolean; type: string }) => {
             if (data.fatal) {
-              setError('Yayın bağlantı hatası — tekrar deneyin');
-              setPlaying(false);
-              setLoading(false);
+              if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                hls.startLoad();
+              } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                hls.recoverMediaError();
+              } else {
+                setError('Yayın bağlantı hatası — tekrar deneyin');
+                setPlaying(false);
+                setLoading(false);
+              }
             }
           });
           hlsRef.current = hls;

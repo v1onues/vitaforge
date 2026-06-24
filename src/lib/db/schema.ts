@@ -23,6 +23,13 @@ export interface Settings {
   tmdbApiKey: string;
   googleBooksApiKey: string;
   lastfmApiKey: string;
+  // Cloud sync
+  syncEnabled: boolean;
+  syncId: string;
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+  lastSyncAt: number | null;
+  autoSync: boolean;
 }
 
 export interface ProjectGroup {
@@ -422,6 +429,48 @@ export class VitaForgeDB extends Dexie {
           { id: crypto.randomUUID(), name: 'Jazz FM', url: 'https://jazz-wr01.ice.infomaniak.ch/jazz-wr01-128.mp3', category: 'international', genre: 'Jazz', country: 'CH', faviconUrl: null, order: 7, isDefault: true, createdAt: now, updatedAt: now },
           { id: crypto.randomUUID(), name: 'Classic FM', url: 'https://media-ice.musicradio.com/ClassicFMMP3', category: 'international', genre: 'Classical', country: 'UK', faviconUrl: null, order: 8, isDefault: true, createdAt: now, updatedAt: now },
         ]);
+      }
+    });
+
+    this.version(7).stores({
+      profiles: 'id',
+      settings: 'id',
+      projects: 'id, status, priority, order',
+      tasks: 'id, projectId, groupId, parentId, status, deadline, *tags, order, recurringPattern',
+      timeEntries: 'id, taskId, startTime, createdAt',
+      tags: 'id, name',
+      habits: 'id, archived',
+      habitLogs: 'id, habitId, [habitId+date]',
+      notes: 'id, *tags, *links, pinned',
+      goals: 'id, type, parentId, lifeArea, status',
+      lifeAreas: 'id',
+      moodLogs: 'id, date',
+      backups: 'id, createdAt',
+      journalEntries: 'id, date',
+      gratitudeEntries: 'id, date',
+      sleepLogs: 'id, date',
+      readingItems: 'id, status, type',
+      mediaItems: 'id, type, status, *tags',
+      transactions: 'id, type, category, date, *tags',
+      activityLogs: 'id, type, timestamp',
+      aiChatMessages: 'id, conversationId, role, createdAt',
+      fitnessLogs: 'id, date',
+      dictionLogs: 'id, date',
+      projectGroups: 'id, projectId, order',
+      monitoredEndpoints: 'id, url, order',
+      radioStations: 'id, category, order',
+    }).upgrade(async (tx) => {
+      const settingsTable = tx.table('settings');
+      const existing = await settingsTable.get('main');
+      if (existing) {
+        await settingsTable.update('main', {
+          syncEnabled: false,
+          syncId: '',
+          supabaseUrl: '',
+          supabaseAnonKey: '',
+          lastSyncAt: null,
+          autoSync: false,
+        });
       }
     });
   }

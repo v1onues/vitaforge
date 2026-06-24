@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/stores/auth-store';
+import { db } from '@/lib/db/schema';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { useUIStore } from '@/lib/stores/ui-store';
@@ -38,6 +39,14 @@ export default function DashboardLayout({
       });
       import('@/lib/utils/auto-backup').then(({ checkAutoBackup }) => {
         checkAutoBackup();
+      });
+      // Auto-sync pull on login
+      import('@/lib/sync/sync-client').then(({ pullSync }) => {
+        db.settings.get('main').then((s) => {
+          if (s?.syncEnabled && s.autoSync && s.syncId) {
+            pullSync().catch(() => {});
+          }
+        });
       });
     }
   }, [isAuthenticated]);
