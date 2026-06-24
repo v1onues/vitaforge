@@ -1,7 +1,5 @@
 import { db } from '@/lib/db/schema';
 
-const RAWG_BASE = 'https://api.rawg.io/api';
-
 async function getKey(): Promise<string> {
   const s = await db.settings.get('main');
   return s?.rawgApiKey ?? '';
@@ -37,19 +35,24 @@ export async function searchRawg(query: string): Promise<RawgSearchResult[]> {
   const key = await getKey();
   if (!key) throw new Error('RAWG API key not configured');
 
-  const params = new URLSearchParams({ query, key, page_size: '6' });
-  const res = await fetch(`${RAWG_BASE}/games?${params}`);
+  const res = await fetch('/api/rawg/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, apiKey: key }),
+  });
   if (!res.ok) throw new Error(`RAWG error: ${res.status}`);
-  const data = await res.json();
-  return data.results ?? [];
+  return res.json();
 }
 
 export async function getRawgDetails(id: number): Promise<RawgDetails> {
   const key = await getKey();
   if (!key) throw new Error('RAWG API key not configured');
 
-  const params = new URLSearchParams({ key });
-  const res = await fetch(`${RAWG_BASE}/games/${id}?${params}`);
+  const res = await fetch('/api/rawg/details', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, apiKey: key }),
+  });
   if (!res.ok) throw new Error(`RAWG error: ${res.status}`);
   return res.json();
 }

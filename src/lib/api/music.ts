@@ -1,7 +1,5 @@
 import { db } from '@/lib/db/schema';
 
-const LF_BASE = 'https://ws.audioscrobbler.com/2.0';
-
 async function getKey(): Promise<string> {
   const s = await db.settings.get('main');
   return s?.lastfmApiKey ?? '';
@@ -59,26 +57,26 @@ export async function searchAlbums(query: string): Promise<LastfmAlbumSearchResu
   const key = await getKey();
   if (!key) throw new Error('Last.fm API key not configured');
 
-  const params = new URLSearchParams({
-    method: 'album.search', album: query, api_key: key, format: 'json', limit: '8',
+  const res = await fetch('/api/lastfm/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, type: 'album', apiKey: key }),
   });
-  const res = await fetch(`${LF_BASE}?${params}`);
   if (!res.ok) throw new Error(`Last.fm error: ${res.status}`);
-  const data = await res.json();
-  return data.results?.albummatches?.album ?? [];
+  return res.json();
 }
 
 export async function getAlbumInfo(artist: string, album: string): Promise<LastfmAlbumInfo | null> {
   const key = await getKey();
   if (!key) return null;
 
-  const params = new URLSearchParams({
-    method: 'album.getinfo', artist, album, api_key: key, format: 'json',
+  const res = await fetch('/api/lastfm/details', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ artist, album, apiKey: key }),
   });
-  const res = await fetch(`${LF_BASE}?${params}`);
   if (!res.ok) return null;
-  const data = await res.json();
-  return data.album ?? null;
+  return res.json();
 }
 
 function getImage(images: LastfmImage[], size: 'small' | 'medium' | 'large' | 'extralarge' = 'large'): string | null {
@@ -121,13 +119,13 @@ export async function searchTracks(query: string): Promise<LastfmTrackSearchResu
   const key = await getKey();
   if (!key) throw new Error('Last.fm API key not configured');
 
-  const params = new URLSearchParams({
-    method: 'track.search', track: query, api_key: key, format: 'json', limit: '8',
+  const res = await fetch('/api/lastfm/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, type: 'track', apiKey: key }),
   });
-  const res = await fetch(`${LF_BASE}?${params}`);
   if (!res.ok) throw new Error(`Last.fm error: ${res.status}`);
-  const data = await res.json();
-  return data.results?.trackmatches?.track ?? [];
+  return res.json();
 }
 
 export function parseTrack(item: LastfmTrackSearchResult): ParsedTrack {

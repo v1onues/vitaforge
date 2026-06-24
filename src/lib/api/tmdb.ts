@@ -1,7 +1,5 @@
 import { db } from '@/lib/db/schema';
 
-const TMDB_BASE = 'https://api.themoviedb.org/3';
-
 async function getKey(): Promise<string> {
   const s = await db.settings.get('main');
   return s?.tmdbApiKey ?? '';
@@ -40,25 +38,24 @@ export async function searchTmdb(query: string): Promise<TmdbSearchResult[]> {
   const key = await getKey();
   if (!key) throw new Error('TMDB API key not configured');
 
-  const params = new URLSearchParams({ query, language: 'tr-TR', api_key: key });
-  const url = `${TMDB_BASE}/search/multi?${params}`;
-
-  const res = await fetch(url, { headers: { accept: 'application/json' } });
+  const res = await fetch('/api/tmdb/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, apiKey: key }),
+  });
   if (!res.ok) throw new Error(`TMDB error: ${res.status}`);
-
-  const data = await res.json();
-  return (data.results ?? []).filter(
-    (r: { media_type: string }) => r.media_type === 'movie' || r.media_type === 'tv'
-  );
+  return res.json();
 }
 
 export async function getTmdbDetails(id: number, type: 'movie' | 'tv'): Promise<TmdbDetails> {
   const key = await getKey();
   if (!key) throw new Error('TMDB API key not configured');
 
-  const params = new URLSearchParams({ language: 'tr-TR', append_to_response: 'credits', api_key: key });
-  const url = `${TMDB_BASE}/${type}/${id}?${params}`;
-  const res = await fetch(url, { headers: { accept: 'application/json' } });
+  const res = await fetch('/api/tmdb/details', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, type, apiKey: key }),
+  });
   if (!res.ok) throw new Error(`TMDB error: ${res.status}`);
   return res.json();
 }
@@ -87,6 +84,8 @@ export function parseTmdbDetails(details: TmdbDetails) {
       genre: genres,
       overview: details.overview,
       runtime,
+      number_of_seasons: details.number_of_seasons ?? null,
+      number_of_episodes: details.number_of_episodes ?? null,
     }),
     imageUrl: posterUrl(details.poster_path, 'w500'),
   };

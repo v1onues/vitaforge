@@ -15,13 +15,57 @@ interface Message {
   toolResults?: unknown[];
 }
 
+const SYSTEM_PROMPT = `Sen VitaForge kişisel yönetim asistanısın. Türkçe konuşuyorsun ve kullanıcının hayatının her alanını yönetmesine yardımcı oluyorsun.
+
+## YETENEKLERİN
+- Görev/task ekleme, güncelleme, silme
+- Proje oluşturma
+- Not alma (Markdown destekler)
+- Film/dizi/oyun/müzik ekleme ve güncelleme (TMDB, RAWG, Last.fm entegrasyonu)
+- Kitap/okuma listesi
+- Günlük yazma
+- Alışkanlık oluşturma ve takip
+- Finansal kayıt (gelir/gider)
+- Uyku takibi
+- Spor/egzersiz kaydı
+- Minnettarlık günlüğü
+- Hedef belirleme
+
+## MEDYA İŞLEMLERİ (ÖNEMLİ)
+Kullanıcı bir film, dizi veya oyundan bahsederse:
+1. Önce search_tmdb veya search_rawg ile ara (orijinal isimle)
+2. Bulduğunda get_tmdb_details ile detayları çek
+3. Sonra add_media ile kaydet (metadata'ya TMDB verilerini JSON olarak koy)
+4. Poster için imageUrl ekle (https://image.tmdb.org/t/p/w500 + poster_path)
+
+Örnek akış — kullanıcı "Dexter izliyorum 2. sezon 7. bölümdeyim" derse:
+1. search_tmdb("Dexter") → sonuç bul
+2. get_tmdb_details(id, "tv") → sezon/bölüm bilgisi al
+3. add_media(title="Dexter", type="series", status="active", metadata={tmdb detayları}, currentEpisode=7, totalEpisodes=toplam, imageUrl=poster)
+
+## TÜRKÇE ANLAMA
+Kullanıcı günlük dilde yazar, sen parsesin:
+- "bugün 3 saat proje çalıştım" → create_task + log_activity
+- "500 TL market harcadım" → add_transaction(type="expense", amount=500, category="yiyecek")
+- "dune 2 izledim 8/10" → search_tmdb("Dune") → add_media(movie, done, rating=8)
+- "gece 12 uyudum sabah 8 kalktım" → log_sleep(bedtime="00:00", wakeTime="08:00")
+- "30 dk koşu yaptım" → log_sport(type="koşu", duration=30)
+- "şükran: sağlıklı olmaktan" → log_gratitude
+
+## KURALLAR
+- Kullanıcı işlem isterse → uygun fonksiyonu çağır ve sonucu Türkçe, kısa açıkla
+- Sadece sohbet ederse → fonksiyon çağırmadan doğrudan cevap ver
+- Birden fazla işlem gerekiyorsa → sırayla çağır (medya eklemede search → details → add zinciri)
+- Medya eklerken TMDB verilerini metadata'ya JSON string olarak koy
+- Yararlı ve özet tut. Uzun lafı uzatma.`;
+
 export function AiAgent() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'intro',
       role: 'assistant',
-      content: 'Merhaba! Ben VitaForge AI asistanıyım. Bana ne yapmak istediğini söyle, ben de senin için ekleyeyim, güncelleyeyim veya sorgulayayım. Örneğin:\n\n• "Bugün 3 saat proje çalıştım, task ekle: API entegrasyonu"\n• "Yeni film izledim: Dune 2, 9/10"\n• "Bugünkü giderler: market 500TL, yol 50TL"\n• "Haftalık hedeflerimi göster"',
+      content: 'Merhaba! Ben VitaForge AI asistanıyım. Bana doğal Türkçe olarak ne yapmak istediğini söyle, ben hallederim.\n\nÖrnekler:\n• "Dexter izliyorum, 2. sezon 7. bölümdeyim"\n• "Bugün 500 TL market harcadım"\n• "Dune 2 izledim, 8/10 puan verdim"\n• "Gece 12 uyudum, sabah 8 kalktım"\n• "30 dakika koşu yaptım"\n• "Yeni görev: API entegrasyonu, öncelik yüksek"',
     },
   ]);
   const [input, setInput] = useState('');
@@ -32,10 +76,14 @@ export function AiAgent() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const posterUrl = (path: string | null) =>
+    path ? `https://image.tmdb.org/t/p/w500${path}` : null;
+
   const executeTool = async (toolCall: { id: string; function: { name: string; arguments: string } }) => {
     const args = JSON.parse(toolCall.function.arguments);
     const name = toolCall.function.name;
     const now = Date.now();
+    const today = new Date().toISOString().split('T')[0];
 
     try {
       switch (name) {
@@ -143,6 +191,56 @@ export function AiAgent() {
           });
           return JSON.stringify({ success: true, id, name: args.name });
         }
+
+        // ===== MEDYA & TMDB =====
+        case 'search_tmdb': {
+          const settings = await db.settings.get('main');
+          const apiKey = settings?.tmdbApiKey;
+          if (!apiKey) return JSON.stringify({ error: 'TMDB API key ayarlarda tanımlı değil. Lütfen Ayarlar > Medya bölümünden ekleyin.' });
+
+          const res = await fetch('/api/tmdb/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: args.query, apiKey }),
+          });
+          if (!res.ok) return JSON.stringify({ error: `TMDB arama hatası: ${res.status}` });
+          const results = await res.json();
+          return JSON.stringify({ success: true, results: results.slice(0, 5), query: args.query });
+        }
+
+        case 'get_tmdb_details': {
+          const settings = await db.settings.get('main');
+          const apiKey = settings?.tmdbApiKey;
+          if (!apiKey) return JSON.stringify({ error: 'TMDB API key ayarlarda tanımlı değil.' });
+
+          const res = await fetch('/api/tmdb/details', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: args.id, type: args.type, apiKey }),
+          });
+          if (!res.ok) return JSON.stringify({ error: `TMDB detay hatası: ${res.status}` });
+          const details = await res.json();
+          const isMovie = !!details.title;
+          return JSON.stringify({
+            success: true,
+            title: isMovie ? details.title : details.name,
+            type: isMovie ? 'movie' : 'series',
+            metadata: JSON.stringify({
+              tmdb_id: details.id,
+              year: (isMovie ? details.release_date : details.first_air_date)?.slice(0, 4) || null,
+              director: details.credits?.crew?.find((c: { job: string }) => c.job === 'Director')?.name || null,
+              genre: details.genres?.map((g: { name: string }) => g.name) || [],
+              overview: details.overview || '',
+              runtime: isMovie ? details.runtime : details.episode_run_time?.[0] || null,
+              number_of_seasons: details.number_of_seasons || null,
+              number_of_episodes: details.number_of_episodes || null,
+            }),
+            imageUrl: posterUrl(details.poster_path),
+            number_of_seasons: details.number_of_seasons || null,
+            number_of_episodes: details.number_of_episodes || null,
+          });
+        }
+
         case 'add_media': {
           const id = crypto.randomUUID();
           await db.mediaItems.add({
@@ -154,36 +252,46 @@ export function AiAgent() {
             rating: args.rating ?? null,
             review: args.review || '',
             progress: 0,
-            totalEpisodes: null,
-            currentEpisode: null,
+            totalEpisodes: args.totalEpisodes ?? null,
+            currentEpisode: args.currentEpisode ?? null,
             url: null,
-            imageUrl: null,
+            imageUrl: args.imageUrl || null,
             tags: args.tags || [],
             createdAt: now,
             updatedAt: now,
           });
           return JSON.stringify({ success: true, id, title: args.title, type: args.type });
         }
-        case 'add_transaction': {
-          const id = crypto.randomUUID();
-          const validAmount = args.type === 'expense' ? -Math.abs(args.amount) : Math.abs(args.amount);
-          await db.transactions.add({
-            id,
-            type: args.type,
-            amount: validAmount,
-            currency: args.currency || 'TRY',
-            category: args.category,
-            description: args.description,
-            date: args.date || new Date().toISOString().split('T')[0],
-            tags: args.tags || [],
-            recurringPattern: null,
-            lastRecurringAt: null,
-            budgetLimit: null,
-            createdAt: now,
+
+        case 'update_media': {
+          await db.mediaItems.update(args.id, {
+            ...(args.status && { status: args.status }),
+            ...(args.rating !== undefined && { rating: args.rating }),
+            ...(args.review !== undefined && { review: args.review }),
+            ...(args.currentEpisode !== undefined && { currentEpisode: args.currentEpisode }),
+            ...(args.totalEpisodes !== undefined && { totalEpisodes: args.totalEpisodes }),
+            ...(args.progress !== undefined && { progress: args.progress }),
             updatedAt: now,
           });
-          return JSON.stringify({ success: true, id, amount: validAmount, category: args.category });
+          return JSON.stringify({ success: true, id: args.id });
         }
+
+        case 'search_rawg': {
+          const settings = await db.settings.get('main');
+          const apiKey = settings?.rawgApiKey;
+          if (!apiKey) return JSON.stringify({ error: 'RAWG API key ayarlarda tanımlı değil.' });
+
+          const res = await fetch('/api/rawg/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: args.query, apiKey }),
+          });
+          if (!res.ok) return JSON.stringify({ error: `RAWG arama hatası: ${res.status}` });
+          const results = await res.json();
+          return JSON.stringify({ success: true, results: results.slice(0, 5) });
+        }
+
+        // ===== OKUMA =====
         case 'add_reading': {
           const id = crypto.randomUUID();
           await db.readingItems.add({
@@ -205,6 +313,30 @@ export function AiAgent() {
           });
           return JSON.stringify({ success: true, id, title: args.title });
         }
+
+        // ===== FİNANS =====
+        case 'add_transaction': {
+          const id = crypto.randomUUID();
+          const validAmount = args.type === 'expense' ? -Math.abs(args.amount) : Math.abs(args.amount);
+          await db.transactions.add({
+            id,
+            type: args.type,
+            amount: validAmount,
+            currency: args.currency || 'TRY',
+            category: args.category,
+            description: args.description,
+            date: args.date || today,
+            tags: [],
+            recurringPattern: null,
+            lastRecurringAt: null,
+            budgetLimit: null,
+            createdAt: now,
+            updatedAt: now,
+          });
+          return JSON.stringify({ success: true, id, amount: validAmount, category: args.category });
+        }
+
+        // ===== GÜNLÜK =====
         case 'log_journal': {
           const existingEntry = await db.journalEntries.where('date').equals(args.date).first();
           if (existingEntry) {
@@ -230,6 +362,77 @@ export function AiAgent() {
           });
           return JSON.stringify({ success: true, id, created: true });
         }
+
+        // ===== UYKU =====
+        case 'log_sleep': {
+          const id = crypto.randomUUID();
+          await db.sleepLogs.add({
+            id,
+            date: args.date,
+            bedtime: args.bedtime,
+            wakeTime: args.wakeTime,
+            quality: args.quality ?? 3,
+            notes: args.notes || '',
+            createdAt: now,
+            updatedAt: now,
+          });
+          return JSON.stringify({ success: true, id });
+        }
+
+        // ===== SPOR =====
+        case 'log_sport': {
+          const id = crypto.randomUUID();
+          await db.fitnessLogs.add({
+            id,
+            date: args.date || today,
+            workoutDone: true,
+            workoutType: args.type || 'other',
+            workoutDuration: args.duration,
+            weight: null,
+            calories: args.calories ?? null,
+            water: 0,
+            notes: args.notes || '',
+            createdAt: now,
+            updatedAt: now,
+          });
+          return JSON.stringify({ success: true, id });
+        }
+
+        // ===== MİNNETDARLIK =====
+        case 'log_gratitude': {
+          const id = crypto.randomUUID();
+          await db.gratitudeEntries.add({
+            id,
+            items: [args.content],
+            date: args.date || today,
+            createdAt: now,
+            updatedAt: now,
+          });
+          return JSON.stringify({ success: true, id });
+        }
+
+        // ===== HEDEFLER =====
+        case 'create_goal': {
+          const id = crypto.randomUUID();
+          await db.goals.add({
+            id,
+            title: args.title,
+            description: args.description || '',
+            type: 'objective',
+            parentId: null,
+            lifeArea: args.category || null,
+            targetValue: null,
+            currentValue: 0,
+            unit: '',
+            deadline: args.deadline ? new Date(args.deadline).getTime() : null,
+            status: 'active',
+            createdAt: now,
+            updatedAt: now,
+          });
+          return JSON.stringify({ success: true, id, title: args.title });
+        }
+
+        // ===== AKTİVİTE =====
         case 'log_activity': {
           const id = crypto.randomUUID();
           await db.activityLogs.add({
@@ -244,6 +447,7 @@ export function AiAgent() {
           });
           return JSON.stringify({ success: true, id });
         }
+
         default:
           return JSON.stringify({ error: `Bilinmeyen fonksiyon: ${name}` });
       }
@@ -271,26 +475,18 @@ export function AiAgent() {
         setMessages((prev) => [...prev, {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: 'Lütfen önce Ayarlar sayfasından API key\'inizi girin.',
+          content: 'Lütfen önce Ayarlar sayfasından AI API key\'inizi girin.',
         }]);
         setLoading(false);
         return;
       }
 
-      const apiMessages = messages
-        .filter((m) => m.role !== 'tool')
-        .concat(newMessage)
-        .map((m) => ({ role: m.role, content: m.content }));
-
-      apiMessages.unshift({
-        role: 'system',
-        content: `Sen VitaForge kişisel yönetim asistanısın. Kullanıcının hayatının her alanını yönetmesine yardımcı oluyorsun.
-
-YANITLAMA KURALLARI:
-- Kullanıcı bir işlem yapmanı isterse (görev ekle, proje oluştur, not al, vs.), uygun fonksiyonu çağır ve sonucu Türkçe açıkla.
-- Kullanıcı sadece soru sorar veya sohbet ederse (ör: "nasılsın?", "ne yapmam gerekiyor?"), fonksiyon çağırmadan doğrudan yanıtla.
-- Bir işlem yaptıktan sonra önemli işlemler için log_activity fonksiyonunu kullan. Basit/günlük işlemler için kullanma.`,
-      });
+      const apiMessages = [
+        { role: 'system', content: SYSTEM_PROMPT },
+        ...messages.filter((m) => m.role !== 'tool').concat(newMessage).map((m) => ({
+          role: m.role, content: m.content,
+        })),
+      ];
 
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
@@ -353,6 +549,37 @@ YANITLAMA KURALLARI:
             }))
           )
         );
+
+        // Check if any tool failed
+        const failedTools = toolResults.filter((r) => {
+          try { return JSON.parse(r.content).error; } catch { return false; }
+        });
+
+        // If some tools failed, retry without tools for a text response
+        if (failedTools.length === assistantMsg.tool_calls.length) {
+          const allErrors = failedTools.map((r) => JSON.parse(r.content).error).join(', ');
+          const retryRes = await fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: [
+                ...apiMessages,
+                { role: 'assistant', content: `Tool çağrıları başarısız oldu: ${allErrors}` },
+                { role: 'user', content: 'Hata aldım, ne yapmalıyım?' },
+              ],
+              provider, apiKey, model, tool_choice: 'none',
+            }),
+          });
+          if (retryRes.ok) {
+            const retryData = await retryRes.json();
+            const retryContent = retryData.choices?.[0]?.message?.content;
+            if (retryContent) {
+              setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: retryContent }]);
+              setLoading(false);
+              return;
+            }
+          }
+        }
 
         setMessages((prev) => [...prev, {
           id: crypto.randomUUID(),
