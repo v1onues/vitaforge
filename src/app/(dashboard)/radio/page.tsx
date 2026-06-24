@@ -196,6 +196,7 @@ export default function RadioPage() {
                 return (
                   <Card
                     key={station.id}
+                    onClick={() => setActiveStation(station)}
                     className={`border-0 transition-colors cursor-pointer ${
                       isActive
                         ? 'bg-primary/10 dark:bg-primary/20'
